@@ -1,6 +1,5 @@
 package pl.owolny.userservice.user;
 
-import jakarta.ws.rs.core.Link;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import pl.owolny.userservice.authprovider.AuthProvider;
@@ -43,7 +42,7 @@ public class UserService {
 
     public LinkedAccount addLink(Long userId, AuthProvider authProvider, String providerUserId, String providerUserEmail, String providerUserName) {
         LinkedAccount linkedAccount = this.linkedAccountService.createLink(authProvider, providerUserId, providerUserEmail, providerUserName);
-        User user = this.getUser(userId).orElseThrow(() -> new NotFoundException("User with id " + userId + " not found"));
+        User user = this.getUser(userId);
 
         Set<LinkedAccount> linkedAccounts = user.getLinkedAccounts();
         linkedAccounts.add(linkedAccount);
@@ -54,7 +53,7 @@ public class UserService {
     }
 
     public void removeLink(Long userId, AuthProvider authProvider) {
-        User user = this.getUser(userId).orElseThrow(() -> new NotFoundException("User with id " + userId + " not found"));
+        User user = this.getUser(userId);
 
         LinkedAccount linkedAccount = user.getLinkedAccounts().stream()
                 .filter(acc -> acc.getAuthProvider().name().equalsIgnoreCase(authProvider.name()))
@@ -67,19 +66,19 @@ public class UserService {
     }
 
     public Optional<LinkedAccount> getLink(Long userId, AuthProvider authProvider) {
-        User user = this.getUser(userId).orElseThrow(() -> new NotFoundException("User with id " + userId + " not found"));
+        User user = this.getUser(userId);
         return user.getLinkedAccounts().stream()
                 .filter(acc -> acc.getAuthProvider().name().equalsIgnoreCase(authProvider.name()))
                 .findFirst();
     }
 
     public Set<LinkedAccount> getLinks(Long userId) {
-        User user = this.getUser(userId).orElseThrow(() -> new NotFoundException("User with id " + userId + " not found"));
+        User user = this.getUser(userId);
         return user.getLinkedAccounts();
     }
 
     public void updateLink(Long userId, AuthProvider authProvider, String providerUserEmail, String providerUserName) {
-        User user = this.getUser(userId).orElseThrow(() -> new NotFoundException("User with id " + userId + " not found"));
+        User user = this.getUser(userId);
 
         LinkedAccount linkedAccount = user.getLinkedAccounts().stream()
                 .filter(acc -> acc.getAuthProvider().name().equalsIgnoreCase(authProvider.name()))
@@ -87,6 +86,22 @@ public class UserService {
                 .orElseThrow(() -> new NotFoundException("User with id " + userId + " didn't link account with " + authProvider));
 
         this.linkedAccountService.updateLinkedAccount(linkedAccount.getId(), providerUserEmail, providerUserName);
+    }
+
+    public Set<User> getUsers() {
+        return new HashSet<>(this.userRepository.findAll());
+    }
+
+    public Optional<User> getUser(String nameOrEmail) {
+        return this.userRepository.findByNameOrEmail(nameOrEmail, nameOrEmail);
+    }
+
+    public Optional<User> getUser(long id) {
+        return this.userRepository.findById(id);
+    }
+
+    public User getUser(Long id) {
+        return this.userRepository.findById(id).orElseThrow(() -> new NotFoundException("User with id " + id + " not found"));
     }
 
     public void setRoles(User user, Collection<Long> rolesId) {
@@ -107,18 +122,6 @@ public class UserService {
         Role role = getRole(roleId);
         user.getRoles().remove(role);
         this.userRepository.save(user);
-    }
-
-    public Set<User> getUsers() {
-        return new HashSet<>(this.userRepository.findAll());
-    }
-
-    public Optional<User> getUser(String nameOrEmail) {
-        return this.userRepository.findByNameOrEmail(nameOrEmail, nameOrEmail);
-    }
-
-    public Optional<User> getUser(long id) {
-        return this.userRepository.findById(id);
     }
 
     private Role getRole(Long roleId) {

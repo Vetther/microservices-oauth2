@@ -33,6 +33,13 @@ public class UserController {
         this.linkedAccountDTOMapper = linkedAccountDTOMapper;
     }
 
+    @GetMapping()
+    public ResponseEntity<Set<UserDTO>> getUsers() {
+        return ResponseEntity.ok(this.userService.getUsers().stream()
+                .map(this.userDTOMapper)
+                .collect(Collectors.toSet()));
+    }
+
     @PostMapping("/create")
     public ResponseEntity<UserDTO> createUser(@RequestBody CreateUserRequest createUserRequest) {
 
