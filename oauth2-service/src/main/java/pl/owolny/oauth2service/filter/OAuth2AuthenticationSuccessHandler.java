@@ -14,9 +14,9 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 import pl.owolny.oauth2service.cookie.CookieAuthorizationRequest;
-import pl.owolny.oauth2service.key.Key;
-import pl.owolny.oauth2service.key.KeyService;
 import pl.owolny.oauth2service.oauth2user.OAuth2UserPrincipal;
+import pl.owolny.oauth2service.redis.provideruserdata.ProviderUserData;
+import pl.owolny.oauth2service.redis.provideruserdata.ProviderUserDataService;
 import pl.owolny.oauth2service.utils.CookieUtils;
 
 import java.io.IOException;
@@ -32,7 +32,7 @@ import static pl.owolny.oauth2service.cookie.CookieAuthorizationRequest.OAUTH2_R
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     private final CookieAuthorizationRequest OAuth2CookieAuthorizationRequest;
-    private final KeyService keyService;
+    private final ProviderUserDataService providerUserDataService;
 
     @Value("${app.oauth2.allowedRedirectUris}")
     private Set<String> allowedRedirectUris;
@@ -72,17 +72,17 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         String targetUrl = redirectUri.orElse(getDefaultTargetUrl());
         OAuth2UserPrincipal user = (OAuth2UserPrincipal) authentication.getPrincipal();
 
-        Key key = new Key(
+        ProviderUserData providerUserData = new ProviderUserData(
                 generateRandomKey(),
                 user.getId(),
                 user.getName(),
                 user.getEmail(),
                 user.getImageUrl()
         );
-        this.keyService.saveKey(key);
+        this.providerUserDataService.save(providerUserData);
 
         return UriComponentsBuilder.fromUriString(targetUrl)
-                .queryParam("key", key.getKey())
+                .queryParam("key", providerUserData.getKey())
                 .queryParams(additionalParams)
                 .build().toUriString();
     }

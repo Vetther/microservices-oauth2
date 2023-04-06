@@ -17,10 +17,12 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest oAuth2UserRequest) throws OAuth2AuthenticationException {
-
         OAuth2User oAuth2User = super.loadUser(oAuth2UserRequest);
 
-        OAuth2UserInfo oAuth2UserInfo = oAuth2UserInfoFactory.getOAuth2UserInfo(oAuth2UserRequest.getClientRegistration().getRegistrationId(), oAuth2User.getAttributes(), oAuth2UserRequest.getAccessToken());
+        OAuth2UserInfo oAuth2UserInfo = oAuth2UserInfoFactory.getOAuth2UserInfo(
+                oAuth2UserRequest.getClientRegistration().getRegistrationId(),
+                oAuth2User.getAttributes(),
+                oAuth2UserRequest.getAccessToken());
 
         return OAuth2UserPrincipal.create(
                 oAuth2UserInfo.getName(),
