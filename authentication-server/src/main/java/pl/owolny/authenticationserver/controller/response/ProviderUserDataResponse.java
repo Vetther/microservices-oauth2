@@ -5,7 +5,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class KeyResponse {
+public class ProviderUserDataResponse {
 
     private String key;
     private String providerUserId;
@@ -13,7 +13,7 @@ public class KeyResponse {
     private String providerUserEmail;
     private String providerUserImageUrl;
 
-    public KeyResponse(String key, String providerUserId, String providerUserName, String providerUserEmail, String providerUserImageUrl) {
+    public ProviderUserDataResponse(String key, String providerUserId, String providerUserName, String providerUserEmail, String providerUserImageUrl) {
         this.key = key;
         this.providerUserId = providerUserId;
         this.providerUserName = providerUserName;
@@ -21,7 +21,7 @@ public class KeyResponse {
         this.providerUserImageUrl = providerUserImageUrl;
     }
 
-    public KeyResponse() {
+    public ProviderUserDataResponse() {
 
     }
 }
