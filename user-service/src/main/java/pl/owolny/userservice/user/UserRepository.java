@@ -20,4 +20,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByName(String name);
 
     Boolean existsByEmail(String email);
+
+    @Query("""
+            select u from User u inner join u.linkedAccounts linkedAccounts
+            where linkedAccounts.authProvider = ?1 and linkedAccounts.providerUserId = ?2""")
+    Optional<User> findByLinkedAccount(AuthProvider authProvider, String providerUserId);
+
+
 }

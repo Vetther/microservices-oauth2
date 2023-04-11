@@ -2,6 +2,8 @@ package pl.owolny.userservice.user;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import pl.owolny.userservice.linkedaccount.LinkedAccount;
 import pl.owolny.userservice.role.Role;
 
@@ -14,7 +16,7 @@ import static jakarta.persistence.FetchType.EAGER;
 @NoArgsConstructor
 @Getter
 @Setter
-public class User {
+public class User implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,6 +24,8 @@ public class User {
 
     @Column(nullable = false, unique = true)
     private String name;
+
+    private String username;
 
     private String password;
 
@@ -40,15 +44,32 @@ public class User {
     private Boolean emailVerified = false;
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        User user = (User) o;
-        return Objects.equals(id, user.id);
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return this.roles;
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(id);
+    public String getUsername() {
+        return this.username;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
     }
 }

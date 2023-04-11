@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.owolny.userservice.authprovider.AuthProvider;
 import pl.owolny.userservice.controller.request.CreateUserRequest;
+import pl.owolny.userservice.controller.request.GetUserRequest;
 import pl.owolny.userservice.controller.request.LinkedAccountRequest;
 import pl.owolny.userservice.controller.request.UpdateLinkRequest;
 import pl.owolny.userservice.linkedaccount.LinkedAccountDTO;
@@ -45,6 +46,7 @@ public class UserController {
 
         User user = userService.createUser(
                 createUserRequest.name(),
+                createUserRequest.username(),
                 createUserRequest.email(),
                 createUserRequest.password(),
                 createUserRequest.imageUrl(),

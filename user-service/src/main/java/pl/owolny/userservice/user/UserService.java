@@ -25,11 +25,12 @@ public class UserService {
 
     // TODO: checki czy nazwa/email sie nie powtarza, sprawdzanie czy nie podpinamy po raz drugi tego samego providera i pewnie jeszcze mnostwo innych poprawek
 
-    public User createUser(String name, String email, String password, String imageUrl, Set<LinkedAccount> linkedAccounts, boolean emailVerification) {
+    public User createUser(String name, String username, String email, String password, String imageUrl, Set<LinkedAccount> linkedAccounts, boolean emailVerification) {
         return this.userRepository.save(
                 new User(
                         null,
                         name,
+                        username,
                         password,
                         email,
                         imageUrl,
@@ -38,6 +39,10 @@ public class UserService {
                         emailVerification
                 )
         );
+    }
+
+    public Optional<User> getUserFromProvider(AuthProvider authProvider, String providerUserId) {
+        return this.userRepository.findByLinkedAccount(authProvider, providerUserId);
     }
 
     public LinkedAccount addLink(Long userId, AuthProvider authProvider, String providerUserId, String providerUserEmail, String providerUserName) {
