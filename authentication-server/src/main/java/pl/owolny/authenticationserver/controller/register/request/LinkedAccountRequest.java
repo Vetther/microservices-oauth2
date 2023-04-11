@@ -1,4 +1,4 @@
-package pl.owolny.authenticationserver.controller.request;
+package pl.owolny.authenticationserver.controller.register.request;
 
 import pl.owolny.authenticationserver.authprovider.AuthProvider;
 
