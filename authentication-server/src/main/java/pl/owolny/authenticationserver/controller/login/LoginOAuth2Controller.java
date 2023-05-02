@@ -3,8 +3,6 @@ package pl.owolny.authenticationserver.controller.login;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,13 +10,11 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import pl.owolny.authenticationserver.authprovider.AuthProvider;
 import pl.owolny.authenticationserver.client.RestClient;
 import pl.owolny.authenticationserver.controller.login.request.GetUserFromProviderRequest;
-import pl.owolny.authenticationserver.controller.register.request.CreateUserRequest;
-import pl.owolny.authenticationserver.controller.register.request.LinkedAccountRequest;
 import pl.owolny.authenticationserver.controller.register.response.CreateUserResponse;
 import pl.owolny.authenticationserver.controller.register.response.ProviderUserDataResponse;
 import pl.owolny.authenticationserver.redis.authtokens.AuthTokensService;
 import pl.owolny.authenticationserver.utils.OAuth2RoutesUtils;
-import pl.owolny.authenticationserver.utils.TokenUtils;
+import pl.owolny.authenticationserver.jwt.JwtService;
 
 @Slf4j
 @RestController
@@ -26,12 +22,12 @@ import pl.owolny.authenticationserver.utils.TokenUtils;
 public class LoginOAuth2Controller {
 
     private final AuthTokensService authTokensService;
-    private final TokenUtils tokenUtils;
+    private final JwtService jwtService;
     private final RestClient restClient;
 
-    public LoginOAuth2Controller(AuthTokensService authTokensService, TokenUtils tokenUtils, RestClient restClient) {
+    public LoginOAuth2Controller(AuthTokensService authTokensService, JwtService jwtService, RestClient restClient) {
         this.authTokensService = authTokensService;
-        this.tokenUtils = tokenUtils;
+        this.jwtService = jwtService;
         this.restClient = restClient;
     }
 
