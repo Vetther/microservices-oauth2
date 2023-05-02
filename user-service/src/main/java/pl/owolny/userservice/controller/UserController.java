@@ -1,5 +1,7 @@
 package pl.owolny.userservice.controller;
 
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import pl.owolny.userservice.authprovider.AuthProvider;
@@ -42,7 +44,13 @@ public class UserController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<UserDTO> createUser(@RequestBody CreateUserRequest createUserRequest) {
+    // TODO: dodac walidacje
+    public ResponseEntity<UserDTO> createUser(@RequestBody @Valid CreateUserRequest createUserRequest) {
+
+        if (this.userService.getUser(createUserRequest.email()).isPresent()
+            || this.userService.getUser(createUserRequest.name()).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
 
         User user = userService.createUser(
                 createUserRequest.name(),
@@ -69,6 +77,7 @@ public class UserController {
     }
 
     @PostMapping("/{userId}/links/create")
+    // TODO: dodac walidacje
     public ResponseEntity<LinkedAccountDTO> createLink(@PathVariable Long userId, @RequestBody LinkedAccountRequest linkedAccountRequest) {
         LinkedAccount linkedAccount = this.userService.addLink(
                 userId,
