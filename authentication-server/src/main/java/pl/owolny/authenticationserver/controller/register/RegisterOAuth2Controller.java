@@ -6,10 +6,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import pl.owolny.authenticationserver.authprovider.AuthProvider;
 import pl.owolny.authenticationserver.client.RestClient;
+import pl.owolny.authenticationserver.controller.register.error.RegisterError;
 import pl.owolny.authenticationserver.controller.register.request.CreateUserRequest;
 import pl.owolny.authenticationserver.controller.register.request.LinkedAccountRequest;
 import pl.owolny.authenticationserver.controller.register.response.CreateUserResponse;
@@ -17,7 +17,9 @@ import pl.owolny.authenticationserver.controller.register.response.ProviderUserD
 import pl.owolny.authenticationserver.redis.authtokens.AuthTokens;
 import pl.owolny.authenticationserver.redis.authtokens.AuthTokensService;
 import pl.owolny.authenticationserver.utils.OAuth2RoutesUtils;
-import pl.owolny.authenticationserver.utils.TokenUtils;
+import pl.owolny.authenticationserver.jwt.JwtService;
+
+import static pl.owolny.authenticationserver.controller.register.error.RegisterError.*;
 
 @RestController
 @RequestMapping("/register/oauth2")
@@ -25,12 +27,12 @@ import pl.owolny.authenticationserver.utils.TokenUtils;
 public class RegisterOAuth2Controller {
 
     private final AuthTokensService authTokensService;
-    private final TokenUtils tokenUtils;
+    private final JwtService jwtService;
     private final RestClient restClient;
 
-    public RegisterOAuth2Controller(AuthTokensService authTokensService, TokenUtils tokenUtils, RestClient restClient) {
+    public RegisterOAuth2Controller(AuthTokensService authTokensService, JwtService jwtService, RestClient restClient) {
         this.authTokensService = authTokensService;
-        this.tokenUtils = tokenUtils;
+        this.jwtService = jwtService;
         this.restClient = restClient;
     }
 
@@ -66,7 +68,7 @@ public class RegisterOAuth2Controller {
         ProviderUserDataResponse providerUserData = this.restClient.getProviderUserDataFromKey(key);
         if (providerUserData == null) {
             log.error("Getting provider-user-data: " + "ERROR");
-            return returnError(response, frontendRedirectUri, "provider_user_data_not_found");
+            return returnError(response, frontendRedirectUri, PROVIDER_USER_DATA_NOT_FOUND);
         }
         log.info("Getting provider-user-data: " + "OK");
 
@@ -74,14 +76,20 @@ public class RegisterOAuth2Controller {
         CreateUserResponse createUserResponse = this.restClient.createUser(createUserRequest(providerUserData, authProvider));
         if (createUserResponse == null) {
             log.error("Creating user in user-service: " + "ERROR");
-            return returnError(response, frontendRedirectUri, "user_creation_error");
+            return returnError(response, frontendRedirectUri, USER_CREATION_FAILED);
         }
         log.info("Creating user in user-service: " + "OK");
 
         // 3. Creating access token and refresh token and saving them in redis
-        String accessToken = tokenUtils.createAccessToken(createUserResponse.name());
-        String refreshToken = tokenUtils.createRefreshToken(createUserResponse.name());
-        this.authTokensService.save(new AuthTokens(key, accessToken, refreshToken));
+        try {
+            String accessToken = jwtService.createAccessToken(createUserResponse.name());
+            String refreshToken = jwtService.createRefreshToken(createUserResponse.name());
+            this.authTokensService.save(new AuthTokens(key, accessToken, refreshToken));
+        } catch (Exception e) {
+            log.error("Creating tokens: " + "ERROR");
+            e.printStackTrace();
+            return returnError(response, frontendRedirectUri, TOKEN_CREATION_FAILED);
+        }
         log.info("Creating new redis object with tokens, key: " + key);
 
         // 4. Redirecting to frontend with key to get tokens
@@ -90,8 +98,8 @@ public class RegisterOAuth2Controller {
         return ResponseEntity.status(HttpStatus.FOUND).build();
     }
 
-    private ResponseEntity<Void> returnError(HttpServletResponse response, String redirectUri, String error) {
-        response.setHeader("Location", redirectUri + "?error=" + error);
+    private ResponseEntity<Void> returnError(HttpServletResponse response, String redirectUri, RegisterError error) {
+        response.setHeader("Location", redirectUri + "?error=" + error.name());
         response.setStatus(HttpStatus.FOUND.value());
         return ResponseEntity.status(HttpStatus.FOUND).build();
     }
