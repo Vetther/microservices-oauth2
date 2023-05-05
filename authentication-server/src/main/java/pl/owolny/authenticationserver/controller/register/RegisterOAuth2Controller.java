@@ -8,18 +8,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import pl.owolny.authenticationserver.authprovider.AuthProvider;
-import pl.owolny.authenticationserver.client.RestClient;
-import pl.owolny.authenticationserver.controller.register.error.RegisterError;
-import pl.owolny.authenticationserver.controller.register.request.CreateUserRequest;
-import pl.owolny.authenticationserver.controller.register.request.LinkedAccountRequest;
-import pl.owolny.authenticationserver.controller.register.response.CreateUserResponse;
-import pl.owolny.authenticationserver.controller.register.response.ProviderUserDataResponse;
+import pl.owolny.authenticationserver.client.SecretKeyClient;
+import pl.owolny.authenticationserver.client.UserClient;
+import pl.owolny.authenticationserver.client.config.RestResponse;
+import pl.owolny.authenticationserver.client.model.UserDTO;
 import pl.owolny.authenticationserver.redis.authtokens.AuthTokens;
 import pl.owolny.authenticationserver.redis.authtokens.AuthTokensService;
 import pl.owolny.authenticationserver.utils.OAuth2RoutesUtils;
 import pl.owolny.authenticationserver.jwt.JwtService;
 
-import static pl.owolny.authenticationserver.controller.register.error.RegisterError.*;
+import static pl.owolny.authenticationserver.client.UserClient.createUserRequest;
+import static pl.owolny.authenticationserver.controller.ResponseBodyError.*;
 
 @RestController
 @RequestMapping("/register/oauth2")
@@ -28,12 +27,14 @@ public class RegisterOAuth2Controller {
 
     private final AuthTokensService authTokensService;
     private final JwtService jwtService;
-    private final RestClient restClient;
+    private final SecretKeyClient secretKeyClient;
+    private final UserClient userClient;
 
-    public RegisterOAuth2Controller(AuthTokensService authTokensService, JwtService jwtService, RestClient restClient) {
+    public RegisterOAuth2Controller(AuthTokensService authTokensService, JwtService jwtService, SecretKeyClient secretKeyClient, UserClient userClient) {
         this.authTokensService = authTokensService;
         this.jwtService = jwtService;
-        this.restClient = restClient;
+        this.secretKeyClient = secretKeyClient;
+        this.userClient = userClient;
     }
 
     @GetMapping("/{authProvider}")
@@ -65,32 +66,28 @@ public class RegisterOAuth2Controller {
         log.info("Params: " + request.getQueryString());
 
         // 1. Getting user data from oauth2-service
-        ProviderUserDataResponse providerUserData = this.restClient.getProviderUserDataFromKey(key);
-        if (providerUserData == null) {
-            log.error("Getting provider-user-data: " + "ERROR");
-            return returnError(response, frontendRedirectUri, PROVIDER_USER_DATA_NOT_FOUND);
+        RestResponse<SecretKeyClient.ProviderUserDataResponse> providerUserDataResponse = this.secretKeyClient.getProviderUserDataFromSecretKey(key);
+        if (!providerUserDataResponse.success() || providerUserDataResponse.data().isEmpty()) {
+            return returnError(response, frontendRedirectUri, PROVIDER_USER_DATA_NOT_FOUND.name());
         }
-        log.info("Getting provider-user-data: " + "OK");
+        SecretKeyClient.ProviderUserDataResponse providerUserData = providerUserDataResponse.data().get();
 
         // 2. Creating user in user-service
-        CreateUserResponse createUserResponse = this.restClient.createUser(createUserRequest(providerUserData, authProvider));
-        if (createUserResponse == null) {
-            log.error("Creating user in user-service: " + "ERROR");
-            return returnError(response, frontendRedirectUri, USER_CREATION_FAILED);
+        RestResponse<UserDTO> restResponse = this.userClient.createUser(createUserRequest(providerUserData, authProvider));
+        if (!restResponse.success() && restResponse.data().isEmpty()) {
+            return returnError(response, frontendRedirectUri, restResponse.error());
         }
-        log.info("Creating user in user-service: " + "OK");
+        UserDTO userDto = restResponse.data().get();
 
         // 3. Creating access token and refresh token and saving them in redis
         try {
-            String accessToken = jwtService.createAccessToken(createUserResponse.name());
-            String refreshToken = jwtService.createRefreshToken(createUserResponse.name());
+            String accessToken = jwtService.createAccessToken(userDto.name());
+            String refreshToken = jwtService.createRefreshToken(userDto.name());
             this.authTokensService.save(new AuthTokens(key, accessToken, refreshToken));
         } catch (Exception e) {
-            log.error("Creating tokens: " + "ERROR");
             e.printStackTrace();
-            return returnError(response, frontendRedirectUri, TOKEN_CREATION_FAILED);
+            return returnError(response, frontendRedirectUri, TOKEN_CREATION_FAILED.name());
         }
-        log.info("Creating new redis object with tokens, key: " + key);
 
         // 4. Redirecting to frontend with key to get tokens
         response.setHeader("Location", frontendRedirectUri + "?secret_key=" + key);
@@ -98,25 +95,10 @@ public class RegisterOAuth2Controller {
         return ResponseEntity.status(HttpStatus.FOUND).build();
     }
 
-    private ResponseEntity<Void> returnError(HttpServletResponse response, String redirectUri, RegisterError error) {
-        response.setHeader("Location", redirectUri + "?error=" + error.name());
+    private ResponseEntity<Void> returnError(HttpServletResponse response, String redirectUri, String error) {
+        log.error("Redirecting to frontend with error: " + error);
+        response.setHeader("Location", redirectUri + "?error=" + error);
         response.setStatus(HttpStatus.FOUND.value());
         return ResponseEntity.status(HttpStatus.FOUND).build();
-    }
-
-    private CreateUserRequest createUserRequest(ProviderUserDataResponse providerUserData, AuthProvider authProvider) {
-        return new CreateUserRequest(
-                providerUserData.providerUserName(),
-                providerUserData.providerUserUsername(),
-                null,
-                providerUserData.providerUserEmail(),
-                providerUserData.providerUserImageUrl(),
-                new LinkedAccountRequest(
-                        authProvider,
-                        providerUserData.providerUserId(),
-                        providerUserData.providerUserEmail(),
-                        providerUserData.providerUserName()
-                )
-        );
     }
 }

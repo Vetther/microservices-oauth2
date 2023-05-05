@@ -8,13 +8,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import pl.owolny.authenticationserver.authprovider.AuthProvider;
-import pl.owolny.authenticationserver.client.RestClient;
-import pl.owolny.authenticationserver.controller.login.request.GetUserFromProviderRequest;
-import pl.owolny.authenticationserver.controller.register.response.CreateUserResponse;
-import pl.owolny.authenticationserver.controller.register.response.ProviderUserDataResponse;
+import pl.owolny.authenticationserver.client.SecretKeyClient;
+import pl.owolny.authenticationserver.client.UserAdminClient;
+import pl.owolny.authenticationserver.client.config.RestResponse;
+import pl.owolny.authenticationserver.client.model.UserDTO;
 import pl.owolny.authenticationserver.redis.authtokens.AuthTokensService;
 import pl.owolny.authenticationserver.utils.OAuth2RoutesUtils;
 import pl.owolny.authenticationserver.jwt.JwtService;
+
+import static pl.owolny.authenticationserver.controller.ResponseBodyError.PROVIDER_USER_DATA_NOT_FOUND;
 
 @Slf4j
 @RestController
@@ -23,12 +25,14 @@ public class LoginOAuth2Controller {
 
     private final AuthTokensService authTokensService;
     private final JwtService jwtService;
-    private final RestClient restClient;
+    private final UserAdminClient userAdminClient;
+    private final SecretKeyClient secretKeyClient;
 
-    public LoginOAuth2Controller(AuthTokensService authTokensService, JwtService jwtService, RestClient restClient) {
+    public LoginOAuth2Controller(AuthTokensService authTokensService, JwtService jwtService, UserAdminClient userAdminClient, SecretKeyClient secretKeyClient) {
         this.authTokensService = authTokensService;
         this.jwtService = jwtService;
-        this.restClient = restClient;
+        this.userAdminClient = userAdminClient;
+        this.secretKeyClient = secretKeyClient;
     }
 
     @GetMapping("/{authProvider}")
@@ -60,30 +64,28 @@ public class LoginOAuth2Controller {
         log.info("Params: " + request.getQueryString());
 
         // 1. Getting user data from oauth2-service
-        ProviderUserDataResponse providerUserData = this.restClient.getProviderUserDataFromKey(key);
-        if (providerUserData == null) {
-            log.error("Getting provider-user-data: " + "ERROR");
-            return returnError(response, frontendRedirectUri, "provider_user_data_not_found");
+        RestResponse<SecretKeyClient.ProviderUserDataResponse> providerUserDataResponse = this.secretKeyClient.getProviderUserDataFromSecretKey(key);
+        if (!providerUserDataResponse.success() || providerUserDataResponse.data().isEmpty()) {
+            return returnError(response, frontendRedirectUri, PROVIDER_USER_DATA_NOT_FOUND.name());
         }
-        log.info("Getting provider-user-data: " + "OK");
+        SecretKeyClient.ProviderUserDataResponse providerUserData = providerUserDataResponse.data().get();
 
         // 2. Searching for user in user-service with this linked account id and provider
         // TODO: dodać obsługę tokenu który trzeba przesłać w headerze, ponieważ teraz jest to publiczny endpoint
         //  i każdy może go wywołać i uzyskać dane użytkownika
-        CreateUserResponse getUserResponse = this.restClient.getUserFromProvider(
-                new GetUserFromProviderRequest(authProvider, providerUserData.providerUserId()));
-        if (getUserResponse == null) {
-            log.error("Getting user in user-service: " + "ERROR");
-            return returnError(response, frontendRedirectUri, "user_not_found");
+        RestResponse<UserDTO> getUserResponse = this.userAdminClient.getUserFromProvider(
+                new UserAdminClient.UserFromProviderRequest(authProvider, providerUserData.providerUserId()));
+        if (!getUserResponse.success() && getUserResponse.data().isEmpty()) {
+            return returnError(response, frontendRedirectUri, getUserResponse.error());
         }
-        log.info("Getting user in user-service: " + "OK");
 
-        response.setHeader("Location", frontendRedirectUri + "?user=" + getUserResponse.name());
+        response.setHeader("Location", frontendRedirectUri + "?user=" + getUserResponse.data().get().name());
         response.setStatus(HttpStatus.FOUND.value());
         return ResponseEntity.status(HttpStatus.FOUND).build();
     }
 
     private ResponseEntity<Void> returnError(HttpServletResponse response, String redirectUri, String error) {
+        log.error("Redirecting to frontend with error: " + error);
         response.setHeader("Location", redirectUri + "?error=" + error);
         response.setStatus(HttpStatus.FOUND.value());
         return ResponseEntity.status(HttpStatus.FOUND).build();

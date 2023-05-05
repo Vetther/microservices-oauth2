@@ -34,19 +34,19 @@ public class JwtService {
         this.publicKey = KeyUtils.readPublicKey("classpath:certs/public.pem");
     }
 
-    private String createToken(String userId, Long tokenExpirationMinutes) {
+    private String createToken(String username, Long tokenExpirationMinutes) {
         Instant now = Instant.now();
         Instant expiryDate = now.plus(tokenExpirationMinutes, ChronoUnit.MINUTES);
 
         return Jwts.builder()
-                .setSubject(userId)
+                .setSubject(username)
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(expiryDate))
                 .signWith(this.privateKey)
                 .compact();
     }
 
-    private String getUserIdFromToken(String token) {
+    public String getUsernameFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(this.publicKey)
                 .build()
@@ -56,7 +56,7 @@ public class JwtService {
         return claims.getSubject();
     }
 
-    private boolean validateToken(String authToken) {
+    public boolean validateToken(String authToken) {
         try {
             Jwts.parserBuilder()
                     .setSigningKey(this.publicKey)
@@ -79,32 +79,16 @@ public class JwtService {
         return false;
     }
 
-    public String createAccessToken(String userId) {
-        return createToken(userId, accessTokenExpirationMinutes);
+    public String createAccessToken(String username) {
+        return createToken(username, accessTokenExpirationMinutes);
+    }
+
+    public String createRefreshToken(String username) {
+        return createToken(username, refreshTokenExpirationMinutes);
     }
 
     public String createAccessTokenFromRefreshToken(String refreshToken) {
-        String userId = getUserIdFromRefreshToken(refreshToken);
-        return createToken(userId, accessTokenExpirationMinutes);
-    }
-
-    public String createRefreshToken(String userId) {
-        return createToken(userId, refreshTokenExpirationMinutes);
-    }
-
-    public String getUserIdFromAccessToken(String token) {
-        return getUserIdFromToken(token);
-    }
-
-    public String getUserIdFromRefreshToken(String token) {
-        return getUserIdFromToken(token);
-    }
-
-    public boolean validateAccessToken(String authToken) {
-        return validateToken(authToken);
-    }
-
-    public boolean validateRefreshToken(String authToken) {
-        return validateToken(authToken);
+        String username = getUsernameFromToken(refreshToken);
+        return createToken(username, accessTokenExpirationMinutes);
     }
 }

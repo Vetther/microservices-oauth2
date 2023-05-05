@@ -2,8 +2,8 @@ package pl.owolny.authenticationserver.controller.tokens;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import pl.owolny.authenticationserver.controller.tokens.request.GetTokensRequest;
-import pl.owolny.authenticationserver.controller.tokens.response.GetTokensResponse;
+import pl.owolny.authenticationserver.controller.tokens.model.TokensRequest;
+import pl.owolny.authenticationserver.controller.tokens.model.TokensResponse;
 import pl.owolny.authenticationserver.redis.authtokens.AuthTokens;
 import pl.owolny.authenticationserver.redis.authtokens.AuthTokensService;
 
@@ -20,14 +20,14 @@ public class TokensController {
     }
 
     @GetMapping("/get")
-    public ResponseEntity<GetTokensResponse> getTokens(@RequestBody GetTokensRequest getTokensRequest) {
+    public ResponseEntity<TokensResponse> getTokens(@RequestBody TokensRequest tokensRequest) {
 
-        Optional<AuthTokens> authTokens = authTokensService.find(getTokensRequest.secretKey());
+        Optional<AuthTokens> authTokens = authTokensService.find(tokensRequest.secretKey());
 
         if (authTokens.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
-        return ResponseEntity.ok(new GetTokensResponse(authTokens.get().accessToken(), authTokens.get().refreshToken()));
+        return ResponseEntity.ok(new TokensResponse(authTokens.get().accessToken(), authTokens.get().refreshToken()));
     }
 }
