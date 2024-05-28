@@ -1,6 +1,6 @@
 # Spring Boot 3 Microservices App
 
-User login/registration system with OAuth2/Credentials using JWT + linking accounts system with different providers.
+User login/registration system with OAuth2/Credentials using JWT + linking accounts system with different providers...
 
 ## Main goal
 
